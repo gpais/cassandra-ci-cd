@@ -21,7 +21,7 @@
     "serviceDiscoveryType": false,
     "buildTool": "maven",
     "enableSocialSignIn": false,
-    "enableSwaggerCodegen": false,
+    "enableSwaggerCodegen": true,
     "enableTranslation": true,
     "applicationType": "uaa",
     "testFrameworks": [
@@ -34,8 +34,7 @@
     "languages": [
       "en",
       "ar-ly",
-      "fr",
-      "el"
+      "zh-cn"
     ],
     "clientPackageManager": "yarn",
     "skipClient": true
