@@ -1,0 +1,22 @@
+version: '2'
+services:
+    jhipstercassandra-app:
+        image: jhipstercassandra
+        environment:
+            - SPRING_PROFILES_ACTIVE=prod,swagger
+            - SPRING_DATA_CASSANDRA_CONTACTPOINTS=jhipstercassandra-cassandra
+            - JHIPSTER_SLEEP=80 # gives time for uaa and the Cassandra cluster to start and execute the migration scripts
+    jhipstercassandra-cassandra:
+        extends:
+            file: cassandra-cluster.yml
+            service: jhipstercassandra-cassandra
+    jhipstercassandra-cassandra-node:
+        image: cassandra:3.9
+        environment:
+            - CASSANDRA_SEEDS=jhipstercassandra-cassandra
+    jhipstercassandra-cassandra-migration:
+        extends:
+            file: cassandra-migration.yml
+            service: jhipstercassandra-cassandra-migration
+        environment:
+            - CREATE_KEYSPACE_SCRIPT=create-keyspace-prod.cql
