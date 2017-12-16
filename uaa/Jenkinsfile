@@ -1,47 +1,72 @@
 #!/usr/bin/env groovy
 
 node {
-    stage('checkout') {
-        checkout scm
-    }
-
-    docker.image('openjdk:8').inside('-u root -e MAVEN_OPTS="-Duser.home=./"') {
-        stage('check java') {
-            sh "java -version"
-        }
-
-        stage('clean') {
-            sh "chmod +x mvnw"
-            sh "./mvnw clean"
-        }
-
-        stage('backend tests') {
-            try {
-                sh "./mvnw test"
-            } catch(err) {
-                throw err
-            } finally {
-                junit '**/target/surefire-reports/TEST-*.xml'
+            stage('checkout') {
+              checkout scm
             }
-        }
 
-        stage('package and deploy') {
-            sh "./mvnw com.heroku.sdk:heroku-maven-plugin:1.1.1:deploy -DskipTests -Pprod -Dheroku.appName="
-            archiveArtifacts artifacts: '**/target/*.war', fingerprint: true
-        }
+  
+            stage('clean') {
+			    
+                sh "chmod 777 *"
+                sh "./mvnw clean"
+            }
+
+            stage('install tools') {
+			    
+                sh "./mvnw com.github.eirslett:frontend-maven-plugin:install-node-and-yarn -DnodeVersion=v8.9.1 -DyarnVersion=v1.3.2"
+            }
+
+            stage('yarn install') {			    
+                sh "./mvnw com.github.eirslett:frontend-maven-plugin:yarn"
+            }
+
+            stage('backend tests') {
+			    
+                try {
+                    sh "chmod 777 *"
+                    sh "./mvnw test"
+                } catch(err) {
+                    throw err
+                } finally {
+                    junit '**/target/surefire-reports/TEST-*.xml'
+                }
+            }
+
+            stage('frontend tests') {
+			   
+                try {
+                    sh "./mvnw com.github.eirslett:frontend-maven-plugin:yarn -Dfrontend.yarn.arguments=test"
+                } catch(err) {
+                    throw err
+                } finally {
+                    junit '**/target/test-results/karma/TESTS-*.xml'
+                }
+            }
+         
+		stage('Code Coverage') {
+		    step([$class: 'JacocoPublisher', execPattern: 'target/test-results/coverage/jacoco/jacoco.exec'])
+	    }
+
+		 stage('package') {
+		 	 	sh "set NODE_TLS_REJECT_UNAUTHORIZED=0"
+		 	 	sh "npm config set strict-ssl false"
+		 	 	sh "rm -R node && rm -R node_modules"
+                sh "./mvnw  -Pprod package -DskipTests"
+          }
+		
+			
+
+
+	 stage('push To repo') {
+	 	   sh "set NODE_TLS_REJECT_UNAUTHORIZED=0"
+	 	   sh "npm config set strict-ssl false"
+           sh "./mvnw -Pprod -DskipTests dockerfile:build dockerfile:push"
+      }
+		
+	 stage('clean node installation') {
+         sh "rm -R node && rm -R node_modules"
+      }
 
     }
 
-    def dockerImage
-    stage('build docker') {
-        sh "cp -R src/main/docker target/"
-        sh "cp target/*.war target/docker/"
-        dockerImage = docker.build('docker-login/jhipstercassandra', 'target/docker')
-    }
-
-    stage('publish docker') {
-        docker.withRegistry('192.168.99.100:500', 'docker-login') {
-            dockerImage.push 'latest'
-        }
-    }
-}
